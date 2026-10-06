@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#f5f7fa" />
+        <title>Urlaubsplanung</title>
+        <link rel="stylesheet" href="style.css" />
+        <script src="script.js" defer></script>
+    </head>
+    <body>
+        <main class="page">
+            <header class="page-header">
+                <div>
+                    <p class="eyebrow">Jahresübersicht</p>
+                    <h1>Urlaubsplanung</h1>
+                    <p class="intro">
+                        Plane deine freien Tage auf einen Blick.
+                    </p>
+                </div>
+                <button
+                    class="theme-toggle"
+                    id="theme-toggle"
+                    type="button"
+                    aria-pressed="false"
+                >
+                    Darkmode aktivieren
+                </button>
+            </header>
+
+            <section class="controls" aria-label="Planungseinstellungen">
+                <label class="field" for="year">
+                    <span>Jahr</span>
+                    <input
+                        id="year"
+                        name="year"
+                        type="number"
+                        min="1900"
+                        max="2100"
+                    />
+                </label>
+                <label class="field" for="state">
+                    <span>Bundesland</span>
+                    <select id="state" name="state">
+                        <option value="BW">Baden-Württemberg</option>
+                        <option value="BY">Bayern</option>
+                        <option value="BE">Berlin</option>
+                        <option value="BB">Brandenburg</option>
+                        <option value="HB">Bremen</option>
+                        <option value="HH">Hamburg</option>
+                        <option value="HE">Hessen</option>
+                        <option value="MV">Mecklenburg-Vorpommern</option>
+                        <option value="NI">Niedersachsen</option>
+                        <option value="NW">Nordrhein-Westfalen</option>
+                        <option value="RP">Rheinland-Pfalz</option>
+                        <option value="SL">Saarland</option>
+                        <option value="SN" selected>Sachsen</option>
+                        <option value="ST">Sachsen-Anhalt</option>
+                        <option value="SH">Schleswig-Holstein</option>
+                        <option value="TH">Thüringen</option>
+                    </select>
+                </label>
+                <label class="field" for="leave-budget">
+                    <span>Urlaubstage</span>
+                    <input
+                        id="leave-budget"
+                        name="leave-budget"
+                        type="number"
+                        min="0"
+                        max="366"
+                        step="0.5"
+                        value="30"
+                    />
+                </label>
+                <label class="option-field" for="pair-days">
+                    <input id="pair-days" name="pair-days" type="checkbox" />
+                    <span
+                        >Heiligabend und Silvester zusammen auswählen (je ½
+                        Tag)</span
+                    >
+                </label>
+                <p class="remaining" id="leave-summary" aria-live="polite"></p>
+            </section>
+
+            <section class="legend" aria-label="Kalenderlegende">
+                <span><i class="swatch swatch--weekend"></i>Wochenende</span>
+                <span><i class="swatch swatch--school"></i>Schulferien</span>
+                <span
+                    ><i class="swatch swatch--holiday"></i>Gesetzlicher
+                    Feiertag</span
+                >
+                <span
+                    ><i class="swatch swatch--selected"></i>Ausgewählter
+                    Urlaub</span
+                >
+            </section>
+
+            <p
+                class="status"
+                id="calendar-status"
+                role="status"
+                aria-live="polite"
+            ></p>
+            <section
+                class="calendar-grid"
+                id="calendar"
+                aria-label="Jahreskalender"
+            ></section>
+
+            <section class="selection" aria-labelledby="selection-heading">
+                <div class="selection-header">
+                    <div>
+                        <p class="eyebrow">Deine Planung</p>
+                        <h2 id="selection-heading">Ausgewählte Urlaubstage</h2>
+                    </div>
+                    <button
+                        class="clear-button"
+                        id="clear-selection"
+                        type="button"
+                    >
+                        Auswahl löschen
+                    </button>
+                </div>
+                <p class="empty-state" id="empty-state">
+                    Noch keine Urlaubstage ausgewählt.
+                </p>
+                <div class="selection-columns" id="selection-content" hidden>
+                    <div>
+                        <h3>Einzelne Tage</h3>
+                        <ul id="selected-dates"></ul>
+                    </div>
+                    <div>
+                        <h3>Zusammenhängende Zeiträume</h3>
+                        <ul id="selected-ranges"></ul>
+                    </div>
+                </div>
+            </section>
+            <footer class="footnote">
+                Gesetzliche Feiertage werden anhand der deutschen Regeln
+                berechnet. Schulferientermine werden für das gewählte Bundesland
+                online geladen.
+            </footer>
+        </main>
+    </body>
+</html>
