@@ -29,6 +29,9 @@
     --holiday-text: #32617b;
     --selected-bg: #ccebd7;
     --selected-text: #145d39;
+    --blocked-bg: #f1e8f1;
+    --blocked-stripe-bg: #f7daf7;
+    --blocked-text: #af70ae;
     --hover-bg: #e8f3ed;
     --button-text: #465363;
     --button-hover-bg: #f3f5f7;
@@ -55,6 +58,9 @@
     --holiday-text: #b3deef;
     --selected-bg: #315b43;
     --selected-text: #d5f5df;
+    --blocked-bg: #553b58;
+    --blocked-stripe-bg: #68466b;
+    --blocked-text: #c7a5c9;
     --hover-bg: #30483a;
     --button-text: #d5dde7;
     --button-hover-bg: #303b49;
@@ -168,7 +174,8 @@ h1 {
 .field select:focus,
 .option-field input:focus-visible,
 .day:focus-visible,
-.clear-button:focus-visible {
+.clear-button:focus-visible,
+.print-button:focus-visible {
     outline: 3px solid #92c5ac;
     outline-offset: 2px;
 }
@@ -235,6 +242,16 @@ h1 {
     background: var(--selected-bg);
 }
 
+.swatch--vacation-blocked {
+    background: repeating-linear-gradient(
+        135deg,
+        var(--blocked-bg),
+        var(--blocked-bg) 4px,
+        var(--blocked-stripe-bg) 4px,
+        var(--blocked-stripe-bg) 7px
+    );
+}
+
 .status {
     min-height: 1.3em;
     margin: 8px 0 12px;
@@ -291,12 +308,13 @@ h1 {
     color: var(--day-text);
     cursor: pointer;
     font-size: 0.78rem;
+    user-select: none;
     transition:
         background-color 120ms ease,
         color 120ms ease;
 }
 
-.day:not(:disabled):hover {
+.day[aria-disabled="false"]:hover {
     background: var(--hover-bg);
 }
 
@@ -324,8 +342,21 @@ h1 {
     font-weight: 800;
 }
 
-.day--selected:disabled {
+.day--selected[aria-disabled="true"] {
     cursor: not-allowed;
+}
+
+.day--vacation-blocked {
+    background: repeating-linear-gradient(
+        135deg,
+        var(--blocked-bg),
+        var(--blocked-bg) 6px,
+        var(--blocked-stripe-bg) 6px,
+        var(--blocked-stripe-bg) 10px
+    );
+    color: var(--blocked-text);
+    box-shadow: inset 0 0 0 1px var(--blocked-text);
+    font-weight: 800;
 }
 
 .selection {
@@ -349,7 +380,14 @@ h1 {
     font-size: 1.35rem;
 }
 
-.clear-button {
+.selection-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.clear-button,
+.print-button {
     padding: 9px 13px;
     border: 1px solid var(--field-border);
     border-radius: 8px;
@@ -358,7 +396,8 @@ h1 {
     cursor: pointer;
 }
 
-.clear-button:hover {
+.clear-button:hover,
+.print-button:hover {
     background: var(--button-hover-bg);
 }
 
@@ -449,7 +488,7 @@ h1 {
 }
 
 @page {
-    size: A4 landscape;
+    size: A4 portrait;
     margin: 4mm;
 }
 
@@ -475,6 +514,9 @@ h1 {
         --holiday-text: #32617b;
         --selected-bg: #ccebd7;
         --selected-text: #145d39;
+        --blocked-bg: #f1e8f1;
+        --blocked-stripe-bg: #f7daf7;
+        --blocked-text: #af70ae;
         --hover-bg: #e8f3ed;
         --button-text: #465363;
         --button-hover-bg: #f3f5f7;
@@ -508,6 +550,7 @@ h1 {
     .status,
     .theme-toggle,
     .clear-button,
+    .print-button,
     .footnote {
         display: none !important;
     }
@@ -584,7 +627,7 @@ h1 {
     }
 
     .calendar-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 1.5mm;
     }
 
@@ -606,7 +649,7 @@ h1 {
     .weekday,
     .day,
     .day-spacer {
-        height: 3.4mm;
+        height: 5.5mm;
         aspect-ratio: auto;
         font-size: 6.5pt;
         line-height: 1;
@@ -654,7 +697,7 @@ h1 {
         columns: 3;
         column-gap: 3mm;
         padding-left: 3mm;
-        font-size: 6pt;
+        font-size: 7.5pt;
         line-height: 1.15;
     }
 
