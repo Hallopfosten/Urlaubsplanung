@@ -15,7 +15,9 @@
                     <p class="eyebrow">Jahresübersicht</p>
                     <h1>Urlaubsplanung</h1>
                     <p class="intro">
-                        Plane deine freien Tage auf einen Blick.
+                        Klicke einzelne Tage an oder ziehe mit gedrückter
+                        Maustaste über mehrere Tage (links für Urlaub, rechts
+                        für Urlaubssperren).
                     </p>
                 </div>
                 <button
@@ -93,6 +95,10 @@
                     ><i class="swatch swatch--selected"></i>Ausgewählter
                     Urlaub</span
                 >
+                <span
+                    ><i class="swatch swatch--vacation-blocked"></i>Urlaubssperre
+                    (Rechtsklick oder Rechtsklick-Ziehen)</span
+                >
             </section>
 
             <p
@@ -113,13 +119,22 @@
                         <p class="eyebrow">Deine Planung</p>
                         <h2 id="selection-heading">Ausgewählte Urlaubstage</h2>
                     </div>
-                    <button
-                        class="clear-button"
-                        id="clear-selection"
-                        type="button"
-                    >
-                        Auswahl löschen
-                    </button>
+                    <div class="selection-actions">
+                        <button
+                            class="print-button"
+                            id="print-plan"
+                            type="button"
+                        >
+                            Drucken
+                        </button>
+                        <button
+                            class="clear-button"
+                            id="clear-selection"
+                            type="button"
+                        >
+                            Auswahl löschen
+                        </button>
+                    </div>
                 </div>
                 <p class="empty-state" id="empty-state">
                     Noch keine Urlaubstage ausgewählt.
