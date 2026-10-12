@@ -12,6 +12,7 @@ const selectedRangesList = document.querySelector("#selected-ranges");
 const selectionContent = document.querySelector("#selection-content");
 const emptyState = document.querySelector("#empty-state");
 const clearButton = document.querySelector("#clear-selection");
+const printButton = document.querySelector("#print-plan");
 const themeToggle = document.querySelector("#theme-toggle");
 yearInput.value = String(new Date().getFullYear() + 1);
 
@@ -37,6 +38,10 @@ const monthNames = [
 ];
 const weekdayNames = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 const selectedDays = new Set();
+const blockedDays = new Set();
+let dragSelection = null;
+let dragVacationBlock = null;
+let suppressClickAfterDrag = false;
 let publicHolidays = new Map();
 let schoolHolidays = new Map();
 let holidaysRequestId = 0;
@@ -207,23 +212,29 @@ function makeDayButton(year, month, day) {
     const schoolHolidayName = schoolHolidays.get(key);
     const weekend = weekdayIndex(year, month, day) >= 5;
     const selected = selectedDays.has(key);
+    const blocked = blockedDays.has(key);
+    const unavailable = Boolean(holidayName || weekend);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "day";
     button.textContent = String(day);
     button.dataset.date = key;
-    button.setAttribute("aria-label", `${day}. ${monthNames[month]} ${year}${holidayName ? `, Feiertag: ${holidayName}` : ""}${schoolHolidayName ? `, ${schoolHolidayName}` : ""}${selected ? ", als Urlaub ausgewählt" : ""}`);
+    button.setAttribute("aria-disabled", String(unavailable));
+    button.setAttribute("aria-pressed", String(selected));
+    if (unavailable) button.tabIndex = -1;
+    button.setAttribute("aria-label", `${day}. ${monthNames[month]} ${year}${holidayName ? `, Feiertag: ${holidayName}` : ""}${schoolHolidayName ? `, ${schoolHolidayName}` : ""}${selected ? ", als Urlaub ausgewählt" : ""}${blocked ? ", Urlaubssperre" : ""}`);
 
     if (weekend) button.classList.add("day--weekend");
     if (holidayName) button.classList.add("day--holiday");
     if (schoolHolidayName) button.classList.add("day--school");
     if (selected) button.classList.add("day--selected");
-    if (holidayName || weekend) {
-        button.disabled = true;
-        button.title = holidayName ? `Feiertag: ${holidayName}` : "Wochenende";
-    } else if (schoolHolidayName) {
-        button.title = schoolHolidayName;
-    }
+    if (blocked) button.classList.add("day--vacation-blocked");
+    const titleParts = [
+        holidayName ? `Feiertag: ${holidayName}` : weekend ? "Wochenende" : "",
+        schoolHolidayName || "",
+        blocked ? "Urlaubssperre (Rechtsklick zum Aufheben)" : "Rechtsklick: Urlaubssperre umschalten"
+    ].filter(Boolean);
+    button.title = titleParts.join(" · ");
     return button;
 }
 
@@ -283,6 +294,11 @@ function formatDate(key) {
         .format(new Date(Date.UTC(year, month - 1, day)));
 }
 
+function formatSummaryDate(key) {
+    const [year, month, day] = key.split("-");
+    return `${day}.${month}.${year}`;
+}
+
 function formatLeaveCount(amount) {
     if (amount === 0.5) return "(½ Urlaubstag)";
     const formattedAmount = amount.toLocaleString("de-DE");
@@ -298,7 +314,7 @@ function renderSelections() {
 
     for (const key of sortedDays) {
         const item = document.createElement("li");
-        item.textContent = `${formatDate(key)} ${formatLeaveCount(dayCost(key))}`;
+        item.textContent = `${formatSummaryDate(key)} ${formatLeaveCount(dayCost(key))}`;
         selectedDatesList.append(item);
     }
 
@@ -330,8 +346,8 @@ function renderSelections() {
     for (const range of ranges) {
         const item = document.createElement("li");
         item.textContent = range.start === range.end
-            ? `${formatDate(range.start)} ${formatLeaveCount(range.leaveDays)}`
-            : `${formatDate(range.start)} – ${formatDate(range.end)} ${formatLeaveCount(range.leaveDays)}`;
+            ? `${formatSummaryDate(range.start)} ${formatLeaveCount(range.leaveDays)}`
+            : `${formatSummaryDate(range.start)} – ${formatSummaryDate(range.end)} ${formatLeaveCount(range.leaveDays)}`;
         selectedRangesList.append(item);
     }
 
@@ -340,6 +356,7 @@ function renderSelections() {
 }
 
 function selectOrDeselect(key) {
+    if (blockedDays.has(key)) return;
     if (selectedDays.has(key)) {
         selectedDays.delete(key);
         if (pairDaysInput.checked && (key.endsWith("-12-24") || key.endsWith("-12-31"))) {
@@ -352,7 +369,7 @@ function selectOrDeselect(key) {
     const keysToAdd = [key];
     if (pairDaysInput.checked && (key.endsWith("-12-24") || key.endsWith("-12-31"))) {
         const otherKey = key.endsWith("-12-24") ? `${key.slice(0, 4)}-12-31` : `${key.slice(0, 4)}-12-24`;
-        keysToAdd.push(otherKey);
+        if (!blockedDays.has(otherKey)) keysToAdd.push(otherKey);
     }
     const additionalCost = keysToAdd.reduce((total, candidate) =>
         total + (selectedDays.has(candidate) ? 0 : dayCost(candidate)), 0);
@@ -361,6 +378,71 @@ function selectOrDeselect(key) {
         return;
     }
     for (const candidate of keysToAdd) selectedDays.add(candidate);
+}
+
+function updateDaySelectionState(key) {
+    const button = calendar.querySelector(`button[data-date="${key}"]`);
+    if (!button) return;
+    const selected = selectedDays.has(key);
+    const blocked = blockedDays.has(key);
+    button.classList.toggle("day--selected", selected);
+    button.classList.toggle("day--vacation-blocked", blocked);
+    button.setAttribute("aria-pressed", String(selected));
+    const [year, month, day] = key.split("-").map(Number);
+    const holidayName = publicHolidays.get(key);
+    const schoolHolidayName = schoolHolidays.get(key);
+    const weekend = weekdayIndex(year, month - 1, day) >= 5;
+    button.setAttribute(
+        "aria-label",
+        `${day}. ${monthNames[month - 1]} ${year}${holidayName ? `, Feiertag: ${holidayName}` : ""}${schoolHolidayName ? `, ${schoolHolidayName}` : ""}${selected ? ", als Urlaub ausgewählt" : ""}${blocked ? ", Urlaubssperre" : ""}`
+    );
+    const titleParts = [
+        holidayName ? `Feiertag: ${holidayName}` : weekend ? "Wochenende" : "",
+        schoolHolidayName || "",
+        blocked ? "Urlaubssperre (Rechtsklick zum Aufheben)" : "Rechtsklick: Urlaubssperre umschalten"
+    ].filter(Boolean);
+    button.title = titleParts.join(" · ");
+}
+
+function setVacationBlock(key, shouldBlock) {
+    const isBlocked = blockedDays.has(key);
+    if (isBlocked === shouldBlock) return false;
+
+    if (shouldBlock) {
+        blockedDays.add(key);
+        selectedDays.delete(key);
+    } else {
+        blockedDays.delete(key);
+    }
+    updateDaySelectionState(key);
+    renderSelections();
+    return true;
+}
+
+function applyVacationBlockDrag(key) {
+    if (!dragVacationBlock || dragVacationBlock.visited.has(key)) return;
+    dragVacationBlock.visited.add(key);
+    dragVacationBlock.changed += Number(setVacationBlock(key, dragVacationBlock.block));
+}
+
+function applyDragSelection(key) {
+    if (!dragSelection || dragSelection.visited.has(key)) return;
+    dragSelection.visited.add(key);
+    const button = calendar.querySelector(`button[data-date="${key}"]`);
+    if (!button || button.getAttribute("aria-disabled") === "true" || blockedDays.has(key)) {
+        return;
+    }
+
+    const isSelected = selectedDays.has(key);
+    if (isSelected !== dragSelection.select) selectOrDeselect(key);
+    updateDaySelectionState(key);
+    if (pairDaysInput.checked && (key.endsWith("-12-24") || key.endsWith("-12-31"))) {
+        const pairedKey = key.endsWith("-12-24")
+            ? `${key.slice(0, 4)}-12-31`
+            : `${key.slice(0, 4)}-12-24`;
+        updateDaySelectionState(pairedKey);
+    }
+    renderSelections();
 }
 
 function refreshCalendar() {
@@ -378,15 +460,97 @@ function refreshCalendar() {
 }
 
 calendar.addEventListener("click", (event) => {
+    if (suppressClickAfterDrag) {
+        suppressClickAfterDrag = false;
+        event.preventDefault();
+        return;
+    }
     const button = event.target.closest("button[data-date]");
-    if (!button || button.disabled) return;
+    if (!button || button.getAttribute("aria-disabled") === "true") return;
     selectOrDeselect(button.dataset.date);
     renderCalendar();
     renderSelections();
 });
 
+calendar.addEventListener("pointerdown", (event) => {
+    if (event.button === 2 && event.isPrimary !== false) {
+        const button = event.target.closest("button[data-date]");
+        if (!button) return;
+        dragVacationBlock = {
+            block: !blockedDays.has(button.dataset.date),
+            visited: new Set(),
+            changed: 0
+        };
+        applyVacationBlockDrag(button.dataset.date);
+        return;
+    }
+    if (event.button !== 0 || event.isPrimary === false) return;
+    const button = event.target.closest("button[data-date]");
+    if (!button || button.getAttribute("aria-disabled") === "true" || blockedDays.has(button.dataset.date)) return;
+    dragSelection = {
+        select: !selectedDays.has(button.dataset.date),
+        visited: new Set()
+    };
+    suppressClickAfterDrag = true;
+    applyDragSelection(button.dataset.date);
+});
+
+calendar.addEventListener("pointerover", (event) => {
+    const button = event.target.closest("button[data-date]");
+    if (!button) return;
+    if (dragVacationBlock && (event.buttons & 2) === 2) {
+        applyVacationBlockDrag(button.dataset.date);
+        return;
+    }
+    if (dragSelection && (event.buttons & 1) === 1) {
+        applyDragSelection(button.dataset.date);
+    }
+});
+
+window.addEventListener("pointerup", () => {
+    dragSelection = null;
+    if (dragVacationBlock) {
+        const completedDrag = dragVacationBlock;
+        setTimeout(() => {
+            if (dragVacationBlock !== completedDrag) return;
+            if (completedDrag.changed > 0) {
+                status.textContent = completedDrag.block
+                    ? `${completedDrag.changed} ${completedDrag.changed === 1 ? "Tag wurde" : "Tage wurden"} als Urlaubssperre markiert.`
+                    : `${completedDrag.changed} ${completedDrag.changed === 1 ? "Urlaubssperre wurde" : "Urlaubssperren wurden"} aufgehoben.`;
+            }
+            dragVacationBlock = null;
+        }, 0);
+    }
+    setTimeout(() => {
+        suppressClickAfterDrag = false;
+    }, 0);
+});
+window.addEventListener("pointercancel", () => {
+    dragSelection = null;
+    dragVacationBlock = null;
+    suppressClickAfterDrag = false;
+});
+
+calendar.addEventListener("contextmenu", (event) => {
+    const button = event.target.closest("button[data-date]");
+    if (!button) return;
+    event.preventDefault();
+
+    if (event.button === 2) return;
+    const key = button.dataset.date;
+    if (dragVacationBlock) return;
+
+    const shouldBlock = !blockedDays.has(key);
+    if (setVacationBlock(key, shouldBlock)) {
+        status.textContent = shouldBlock
+            ? `${formatDate(key)} ist als Urlaubssperre markiert und wird nicht zur Urlaubsplanung gezählt.`
+            : `${formatDate(key)} ist nicht mehr als Urlaubssperre markiert.`;
+    }
+});
+
 yearInput.addEventListener("change", () => {
     selectedDays.clear();
+    blockedDays.clear();
     refreshCalendar();
 });
 stateInput.addEventListener("change", refreshCalendar);
@@ -409,6 +573,9 @@ clearButton.addEventListener("click", () => {
     selectedDays.clear();
     renderCalendar();
     renderSelections();
+});
+printButton.addEventListener("click", () => {
+    window.print();
 });
 themeToggle.addEventListener("click", () => {
     const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
